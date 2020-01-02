@@ -5,6 +5,7 @@ import android.arch.persistence.room.Room;
 import android.arch.persistence.room.RoomDatabase;
 import android.content.Context;
 
+import com.cleanup.todoc.database.Dao.ProjectDao;
 import com.cleanup.todoc.database.Dao.TaskDao;
 import com.cleanup.todoc.model.Project;
 import com.cleanup.todoc.model.Task;
@@ -15,7 +16,7 @@ public abstract class TodocDatabase extends RoomDatabase {
     private static volatile TodocDatabase INSTANCE;
 
     public abstract TaskDao taskDao();
-    public abstract Project projectDao();
+    public abstract ProjectDao projectDao();
 
     public static TodocDatabase getInstance(Context context) {
         if(INSTANCE == null) {

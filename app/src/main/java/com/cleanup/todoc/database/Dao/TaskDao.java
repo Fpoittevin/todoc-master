@@ -20,7 +20,7 @@ public interface TaskDao {
     long insertTask(Task task);
 
     @Delete
-    long deleteTask(Task task);
+    void deleteTask(Task task);
 
     /*
         Dans le cours :
