@@ -1,4 +1,4 @@
-package com.cleanup.todoc;
+package com.cleanup.todoc.ui;
 
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.ViewModel;
@@ -26,6 +26,7 @@ public class TaskViewModel extends ViewModel {
     // PROJECTS
 
     public LiveData<List<Project>> getProjects() {
+
         return projectRepository.getProjects();
     }
 

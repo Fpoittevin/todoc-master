@@ -1,5 +1,7 @@
 package com.cleanup.todoc.ui;
 
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -18,12 +20,15 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.cleanup.todoc.R;
+import com.cleanup.todoc.injection.Injection;
+import com.cleanup.todoc.injection.ViewModelFactory;
 import com.cleanup.todoc.model.Project;
 import com.cleanup.todoc.model.Task;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 /**
  * <p>Home activity of the application which is displayed when the user opens the app.</p>
@@ -32,34 +37,27 @@ import java.util.Date;
  * @author Gaëtan HERFRAY
  */
 public class MainActivity extends AppCompatActivity implements TasksAdapter.DeleteTaskListener {
-    /**
-     * List of all projects available in the application
-     */
-    private final Project[] allProjects = Project.getAllProjects();
 
     /**
-     * List of all current tasks of the application
+     * The tasksAdapter which handles the list of tasks
      */
-    @NonNull
-    private final ArrayList<Task> tasks = new ArrayList<>();
-
-    /**
-     * The adapter which handles the list of tasks
-     */
-    private final TasksAdapter adapter = new TasksAdapter(tasks, this);
-
-    /**
-     * The sort method to be used to display tasks
-     */
-    @NonNull
-    private SortMethod sortMethod = SortMethod.NONE;
-
+    private final TasksAdapter tasksAdapter = new TasksAdapter(new ArrayList<>(), this);
     /**
      * Dialog to create a new task
      */
     @Nullable
     public AlertDialog dialog = null;
+    private TaskViewModel taskViewModel;
+    /**
+     * List of all current tasks of the application
+     */
 
+    private ArrayAdapter<Project> projectsAdapter;
+    /**
+     * The sort method to be used to display tasks
+     */
+    @NonNull
+    private SortMethod sortMethod = SortMethod.NONE;
     /**
      * EditText that allows user to set the name of a task
      */
@@ -94,16 +92,43 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
 
         setContentView(R.layout.activity_main);
 
+        configureTaskViewModel();
+
+        getProjects();
+        getTasks();
+
+        projectsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+
         listTasks = findViewById(R.id.list_tasks);
         lblNoTasks = findViewById(R.id.lbl_no_task);
 
         listTasks.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
-        listTasks.setAdapter(adapter);
+        listTasks.setAdapter(tasksAdapter);
 
         findViewById(R.id.fab_add_task).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 showAddTaskDialog();
+            }
+        });
+    }
+
+    private void getProjects() {
+        taskViewModel.getProjects().observe(this, new Observer<List<Project>>() {
+            @Override
+            public void onChanged(@Nullable List<Project> projects) {
+
+                updateProjects(projects);
+            }
+        });
+    }
+
+    private void getTasks() {
+        taskViewModel.getTasks().observe(this, new Observer<List<Task>>() {
+            @Override
+            public void onChanged(@Nullable List<Task> tasks) {
+
+                updateTasks(tasks);
             }
         });
     }
@@ -128,15 +153,19 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
             sortMethod = SortMethod.RECENT_FIRST;
         }
 
-        updateTasks();
+        getTasks();
 
         return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onDeleteTask(Task task) {
-        tasks.remove(task);
-        updateTasks();
+        taskViewModel.deleteTask(task);
+    }
+
+    private void configureTaskViewModel() {
+        ViewModelFactory viewModelFactory = Injection.provideViewModelFactory(this);
+        taskViewModel = ViewModelProviders.of(this, viewModelFactory).get(TaskViewModel.class);
     }
 
     /**
@@ -162,27 +191,23 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
             }
             // If both project and name of the task have been set
             else if (taskProject != null) {
-                // TODO: Replace this by id of persisted task
-                long id = (long) (Math.random() * 50000);
-
 
                 Task task = new Task(
-                        id,
                         taskProject.getId(),
                         taskName,
                         new Date().getTime()
                 );
 
-                addTask(task);
+                taskViewModel.createTask(task);
 
                 dialogInterface.dismiss();
             }
             // If name has been set, but project has not been set (this should never occur)
-            else{
+            else {
                 dialogInterface.dismiss();
             }
         }
-        // If dialog is aloready closed
+        // If dialog is already closed
         else {
             dialogInterface.dismiss();
         }
@@ -203,19 +228,9 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
     }
 
     /**
-     * Adds the given task to the list of created tasks.
-     *
-     * @param task the task to be added to the list
-     */
-    private void addTask(@NonNull Task task) {
-        tasks.add(task);
-        updateTasks();
-    }
-
-    /**
      * Updates the list of tasks in the UI
      */
-    private void updateTasks() {
+    private void updateTasks(List<Task> tasks) {
         if (tasks.size() == 0) {
             lblNoTasks.setVisibility(View.VISIBLE);
             listTasks.setVisibility(View.GONE);
@@ -237,8 +252,15 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
                     break;
 
             }
-            adapter.updateTasks(tasks);
+            tasksAdapter.updateTasks(tasks);
         }
+    }
+
+    private void updateProjects(List<Project> projects) {
+
+        projectsAdapter.clear();
+        projectsAdapter.addAll(projects);
+        projectsAdapter.notifyDataSetChanged();
     }
 
     /**
@@ -288,10 +310,9 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
      * Sets the data of the Spinner with projects to associate to a new task
      */
     private void populateDialogSpinner() {
-        final ArrayAdapter<Project> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, allProjects);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        projectsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         if (dialogSpinner != null) {
-            dialogSpinner.setAdapter(adapter);
+            dialogSpinner.setAdapter(projectsAdapter);
         }
     }
 
